@@ -144,8 +144,7 @@ def pypinfo(
         parsed_fields.append(parsed)
 
     order_name = order
-    parsed_order = FIELD_MAP.get(order)
-    if parsed_order:
+    if parsed_order := FIELD_MAP.get(order):
         order_name = parsed_order.name
         parsed_fields.insert(0, parsed_order)
 
