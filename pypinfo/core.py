@@ -112,12 +112,11 @@ def version_specifier_condition(specifier: Specifier) -> str:
             prefix_match = False
         # ignore case
         regex = '(?i)^'
-        if version_.epoch == 0:
-            regex += '(0+!)?'
-        else:
-            regex += f'0*{version_.epoch}!'
-        exact_release = r'\.'.join(f'0*{i}' for i in strip_trailing_zero(version_.release))
-        exact_release += r'(\.0+)*'
+        regex += '(0+!)?' if version_.epoch == 0 else f'0*{version_.epoch}!'
+        exact_release = (
+            r'\.'.join(f'0*{i}' for i in strip_trailing_zero(version_.release))
+            + r'(\.0+)*'
+        )
         if prefix_match:
             regex += '('
             regex += exact_release
@@ -147,17 +146,11 @@ def version_specifier_condition(specifier: Specifier) -> str:
             if version_.post is not None:
                 regex += f'(-0*{version_.post}|'
                 regex += r'[-_\.]?(post|rev|r)'
-                if version_.post == 0:
-                    regex += r'([-_\.]?0+)?'
-                else:
-                    regex += rf'[-_\.]?0*{version_.post}'
+                regex += r'([-_\.]?0+)?' if version_.post == 0 else f'[-_\.]?0*{version_.post}'
                 regex += ')'
             if version_.dev is not None:
                 regex += r'[-_\.]?dev'
-                if version_.dev == 0:
-                    regex += r'([-_\.]?0+)?'
-                else:
-                    regex += rf'[-_\.]?0*{version_.dev}'
+                regex += r'([-_\.]?0+)?' if version_.dev == 0 else f'[-_\.]?0*{version_.dev}'
         regex += '$'
         return f'REGEXP_CONTAINS(file.version, r"{regex}")\n'
 
@@ -228,16 +221,19 @@ def build_query(
     conditions = [f'WHERE timestamp BETWEEN {start_date} AND {end_date}\n']
     if project:
         conditions.append(f'file.project = "{project}"\n')
-    for specifier in project_specifiers:
-        conditions.append(version_specifier_condition(Specifier(str(specifier))))
+    conditions.extend(
+        version_specifier_condition(Specifier(str(specifier)))
+        for specifier in project_specifiers
+    )
     if pip:
         conditions.append('details.installer.name = "pip"\n')
     query += '  AND '.join(conditions)
     if where:
         query += f'  AND {where}\n'
 
-    non_aggregate_fields = [field.name for field in fields if field not in AGGREGATES]
-    if non_aggregate_fields:
+    if non_aggregate_fields := [
+        field.name for field in fields if field not in AGGREGATES
+    ]:
         query += 'GROUP BY\n'
         query += '  '
         query += ', '.join(non_aggregate_fields)
@@ -320,11 +316,7 @@ def tabulate(rows: Rows, markdown: bool = False) -> str:
 
     for i in range(len(rows[0])):
         tabulated += '-' * (column_widths[i] - 1)
-        if right_align[0][i] and markdown:
-            tabulated += ': | '
-        else:
-            tabulated += '- | '
-
+        tabulated += ': | ' if right_align[0][i] and markdown else '- | '
     tabulated = tabulated.rstrip()
     tabulated += '\n'
 
